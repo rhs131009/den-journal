@@ -476,6 +476,7 @@ function openDialog(task){
 ['#add-top','#add-small','#add-bottom'].forEach(s=>$(s).onclick=()=>openDialog());$('#close-dialog').onclick=()=>$('#task-dialog').close();$('#task-dialog').addEventListener('click',e=>{if(e.target===$('#task-dialog')){const r=e.target.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)e.target.close()}});
 $('#task-form').onsubmit=e=>{
  e.preventDefault();const title=$('#task-title').value.trim();if(!title){$('#task-title').setCustomValidity('Напиши название задачи');$('#task-title').reportValidity();return}
+ appendPendingExercises();
  const data={title,date:$('#task-date').value,priority:$('#task-priority').value,category:$('#task-category').value.trim(),categoryColor:$('#task-category-color').value,time:$('#task-time').value,notes:$('#task-notes').value.trim(),subtasks:draftSubtasks,kind:$('#task-kind').value,exercises:draftExercises};
  const repeatMode=$('#task-repeat').value;
  const repeat=repeatMode!=='none';
@@ -552,6 +553,16 @@ function renderExerciseDraft(){
    input.required=key==='name';
    if(input.required)input.pattern='.*\\S.*';
    input.oninput=()=>exercise[key]=input.value;
+   if(key==='name')input.onpaste=event=>{
+    const text=event.clipboardData?.getData('text/plain');
+    if(!text)return;
+    const pasted=parseExerciseList(text);
+    if(pasted.length<2)return;
+    event.preventDefault();
+    draftExercises.splice(index,exercise.name.trim()||exercise.details.trim()?0:1,...pasted);
+    renderExerciseDraft();
+    draft.children[index].querySelector('input').focus();
+   };
    field.append(input);
    row.append(field);
   }
@@ -574,18 +585,29 @@ $('#add-exercise').onclick=()=>{
  renderExerciseDraft();
  $('#exercise-draft').lastElementChild.querySelector('input').focus();
 };
-$('#exercise-import-add').onclick=()=>{
+function parseExerciseList(text){
+ // Keep decimal loads such as 12.5 кг intact. Inline numbered lists start with 1.
+ return text.split(/[\r\n\u2028\u2029]+/).flatMap(line=>{
+  const trimmed=line.trim();
+  if(/^1[.)]\s/.test(trimmed))return trimmed.split(/\s+(?=\d+[.)]\s)/);
+  return trimmed.split(/\s*(?=[•▪◦●])/);
+ }).map(line=>line.trim().replace(/^(?:[•▪◦●]\s*|[-*–—]\s+|\d+[.)]\s+)/, '').trim())
+  .filter(Boolean).map(line=>{
+   const [name,...details]=line.split(/\s+[·—–]\s+/);
+   return {id:crypto.randomUUID(),name,details:details.join(' · ')};
+  });
+}
+function appendPendingExercises(){
  const input=$('#exercise-import-text');
- const lines=input.value.split(/\r\n?|\n/).map(line=>line.trim()
-  .replace(/^(?:[-*•]|\d+[.)])\s+/, '').trim()).filter(Boolean);
- if(!lines.length){input.focus();return}
- const exercises=lines.map(line=>{
-  const match=line.match(/^(.+?)\s+([·—–])\s+(.+)$/);
-  return {id:crypto.randomUUID(),name:match?.[1]??line,details:match?.[3]??''};
- });
- const start=draftExercises.length;
+ const exercises=parseExerciseList(input.value);
  draftExercises.push(...exercises);
  input.value='';
+ return exercises.length;
+}
+$('#exercise-import-add').onclick=()=>{
+ const input=$('#exercise-import-text');
+ const start=draftExercises.length;
+ if(!appendPendingExercises()){input.focus();return}
  input.closest('details').open=false;
  renderExerciseDraft();
  $('#exercise-draft').children[start].querySelector('input').focus();
