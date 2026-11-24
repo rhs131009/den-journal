@@ -1,5 +1,6 @@
-// Public browser key. Row Level Security restricts each user to their own journal.
 window.DEN_CONFIG = {
-  supabaseUrl: 'https://wezdpkwpwtugknmzgfwz.supabase.co',
-  supabasePublishableKey: 'sb_publishable_isIJPY_lWIKLybNypopegw_IbDHHyNC'
+  // Set to the public HTTPS address of the new server followed by /api.
+  apiUrl: ['localhost','127.0.0.1'].includes(location.hostname)
+    ? 'http://'+location.hostname+':8080/api'
+    : 'https://87.242.85.129.sslip.io/api'
 };
