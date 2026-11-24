@@ -559,7 +559,9 @@ function renderExerciseDraft(){
     const pasted=parseExerciseList(text);
     if(pasted.length<2)return;
     event.preventDefault();
-    draftExercises.splice(index,exercise.name.trim()||exercise.details.trim()?0:1,...pasted);
+    const replaceName=input.selectionStart===0&&input.selectionEnd===input.value.length;
+    const replaceRow=replaceName&&!exercise.details?.trim();
+    draftExercises.splice(index,replaceRow?1:0,...pasted);
     renderExerciseDraft();
     draft.children[index].querySelector('input').focus();
    };
@@ -585,15 +587,27 @@ $('#add-exercise').onclick=()=>{
  renderExerciseDraft();
  $('#exercise-draft').lastElementChild.querySelector('input').focus();
 };
+function splitInlineExerciseLoads(line){
+ const entries=[];
+ let start=0;
+ // Accept a whole line of repeated «название — подходы × повторения».
+ for(const match of line.matchAll(/\s+[·—–-]\s+\d+\s*[×xх*]\s*\d+(?:\s*[-–—]\s*\d+)?(?=\s|$)/giu)){
+  if(!line.slice(start,match.index).trim())return [line];
+  const end=match.index+match[0].length;
+  entries.push(line.slice(start,end).trim());
+  start=end;
+ }
+ return entries.length>1&&!line.slice(start).trim()?entries:[line];
+}
 function parseExerciseList(text){
  // Keep decimal loads such as 12.5 кг intact. Inline numbered lists start with 1.
  return text.split(/[\r\n\u2028\u2029]+/).flatMap(line=>{
   const trimmed=line.trim();
   if(/^1[.)]\s/.test(trimmed))return trimmed.split(/\s+(?=\d+[.)]\s)/);
-  return trimmed.split(/\s*(?=[•▪◦●])/);
+  return trimmed.split(/\s*(?=[•▪◦●])/).flatMap(splitInlineExerciseLoads);
  }).map(line=>line.trim().replace(/^(?:[•▪◦●]\s*|[-*–—]\s+|\d+[.)]\s+)/, '').trim())
   .filter(Boolean).map(line=>{
-   const [name,...details]=line.split(/\s+[·—–]\s+/);
+   const [name,...details]=line.split(/\s+[·—–-]\s+/);
    return {id:crypto.randomUUID(),name,details:details.join(' · ')};
   });
 }
