@@ -242,11 +242,28 @@ html[data-theme] .primary {
   color: #101513;
   border-color: transparent;
 }
+.day-option {
+  isolation: isolate;
+  overflow: hidden;
+}
+.day-option::before {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: var(--day-progress, 0%);
+  background: color-mix(in srgb, var(--app-accent) 36%, transparent);
+  pointer-events: none;
+  z-index: -1;
+}
 html[data-theme] .day-option.chosen {
-  background: color-mix(in srgb,var(--app-accent) 36%,var(--bg));
+  background: linear-gradient(145deg,#ffffffb0,#ffffff35);
   border-color: var(--app-accent);
   color: var(--ink);
 }
+html[data-theme=dark] .day-option.chosen {
+  background: linear-gradient(145deg,#e0f6ec12,#ffffff04);
+}
+html[data-theme] .day-option.chosen :is(span, small) { color: inherit; }
 html[data-theme] .nav.active { box-shadow: inset 0 0 0 1px color-mix(in srgb,var(--app-accent) 55%,transparent); }
 .progress i, .mini-bars i { background: var(--app-accent); }
 .accent-settings { color: var(--muted); margin: 12px 0; }
@@ -496,7 +513,7 @@ function scoped(){
 function renderCompleted(){
  const list=$('#completed-list');
  list.replaceChildren();
- const completed=[...allTasks(),...undatedTasks()].filter(task=>task.done&&(task.kind==='todo'||task.date!==today)).sort((a,b)=>(b.completedDate??b.date).localeCompare(a.completedDate??a.date));
+ const completed=[...allTasks(),...undatedTasks()].filter(task=>task.done&&(task.kind==='todo'||task.date<today)).sort((a,b)=>(b.completedDate??b.date).localeCompare(a.completedDate??a.date));
  for(const task of completed){
   const button=document.createElement('button');
   button.type='button';
@@ -511,7 +528,7 @@ function renderCompleted(){
  }
  if(!completed.length)list.textContent='Пока нет выполненных задач';
 }
-function render(){renderCompleted();renderTodos();renderCalendar();$('#notes').readOnly=view==='today'&&isPast(selectedDate);for(const id of ['#add-top','#add-small','#add-bottom'])$(id).hidden=view==='today'&&isPast(selectedDate);renderAnalytics();const day=allTasks().filter(t=>t.date===selectedDate),week=allTasks().filter(t=>days.includes(t.date));const done=day.filter(t=>t.done).length,pct=Math.round(journalProgress(day));$('#day-pct').textContent=pct+'%';$('#mascot-button')?.classList.toggle('celebrating',day.length>0&&done===day.length);const mascotMessage=$('#mascot-message');if(mascotMessage)mascotMessage.textContent=day.length&&done===day.length?'Все дела закрыты. Плащ на крючок — ты заслужил отдых.':done>0?'Уже есть маленькие победы. Продолжаем в твоём темпе.':'Спасать мир — после обеда. Пока закрой одну задачу.';$('#day-count').textContent=`${done} из ${day.length} задач`;$('#day-bar').style.width=pct+'%';$('#week-done').textContent=week.filter(t=>t.done).length;$('#week-total').textContent=`из ${week.length} задач выполнено`;$('#all-count').textContent=undatedTasks().filter(t=>!t.done).length;$('#mini-bars').replaceChildren();$('#chart').replaceChildren();days.forEach((key,i)=>{const total=week.filter(t=>t.date===key),n=total.filter(t=>t.done).length,percent=journalProgress(total);const bar=document.createElement('i');bar.style.height=Math.max(12,percent)+'%';bar.title=`${labelDate(key)}: ${n} из ${total.length}`;$('#mini-bars').append(bar);const col=document.createElement('div');col.className='chart-col'+(key===today?' today':'');col.title=bar.title;const b=document.createElement('div');b.className='chart-bar';b.style.height=Math.max(5,percent)+'%';const l=document.createElement('label');l.textContent=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'][i];col.append(b,l);$('#chart').append(col)});$('#week-summary').textContent=week.length?`Выполнено ${Math.round(journalProgress(week))}% планов недели`:'На этой неделе пока нет задач';const list=scoped().filter(t=>!t.done||(view==='today'&&t.date===today));$('#task-count').textContent=list.length;$('#remaining').textContent=`Осталось: ${list.filter(t=>!t.done).length}`;const visible=list.filter(t=>view!=='today'||filter==='all'||(filter==='done'?t.done:!t.done)).sort((a,b)=>a.date.localeCompare(b.date)||(a.time||'24:00').localeCompare(b.time||'24:00')||(view!=='today'?0:Number(a.done)-Number(b.done)));$('#task-list').replaceChildren();if(!visible.length){const e=document.createElement('div');e.className='empty';e.textContent=view!=='today'?'Пока нет задач':filter==='done'?'Здесь появятся выполненные дела':filter==='open'?'Всё готово. Можно выдохнуть':'Пока чистый лист. Каким будет твой день?';$('#task-list').append(e)}visible.forEach(t=>{const row=document.createElement('div');row.className='task'+(t.done?' done':'');const check=document.createElement('button');check.className='check';check.textContent=t.done?'✓':'';check.setAttribute('aria-label',(hasExercises(t)?'Открыть упражнения: ':t.done?'Вернуть в планы: ':'Завершить: ')+t.title);check.setAttribute('aria-pressed',t.done);check.disabled=isPast(t.date);check.onclick=()=>{if(!canChange(t))return;if(hasExercises(t)){openDetails(t.id);return}if(t.seriesId){const series=recurring.find(r=>r.id===t.seriesId);series.completed[t.date]=!t.done}else t.done=!t.done;save();render()};const body=document.createElement('div');body.className='task-body';const title=document.createElement('button');title.type='button';title.className='task-title task-open';title.textContent=t.title+' ›';title.setAttribute('aria-label','Открыть задачу: '+t.title);title.onclick=()=>openDetails(t.id);const meta=document.createElement('div');meta.className='task-meta';const cat=document.createElement('span');cat.className='category'+(t.category==='Работа'?' work':t.category==='Здоровье'?' health':'');cat.textContent=t.category;const dot=document.createElement('i');dot.className='priority '+t.priority;const priority=document.createElement('span');priority.textContent=priorities[t.priority];if(t.category){if(t.categoryColor){cat.style.setProperty('--category-color',t.categoryColor);cat.classList.add('custom-category')}meta.append(cat)}meta.append(dot,priority);if(t.time){const time=document.createElement('time');time.textContent=t.time;meta.append(time)}if(t.kind==='workout'){const badge=document.createElement('span');badge.className='recurring-badge';badge.textContent=hasExercises(t)?'Тренировка · '+workoutProgress(t).percent+'%':'Тренировка';meta.append(badge)}if(t.seriesId){const badge=document.createElement('span');badge.className='recurring-badge';badge.textContent='↻ '+seriesLabel(recurring.find(r=>r.id===t.seriesId));meta.append(badge)}if(view!=='today'){const d=document.createElement('span');d.textContent=labelDate(t.date);meta.append(d)}if(t.notes){const detail=document.createElement('span');detail.className='subtask-summary';detail.textContent='✎ Заметки';meta.append(detail)}body.append(title,meta);row.append(check,body);$('#task-list').append(row)})}
+function render(){renderCompleted();renderTodos();renderCalendar();$('#notes').readOnly=view==='today'&&isPast(selectedDate);for(const id of ['#add-top','#add-small','#add-bottom'])$(id).hidden=view==='today'&&isPast(selectedDate);renderAnalytics();const day=allTasks().filter(t=>t.date===selectedDate),week=allTasks().filter(t=>days.includes(t.date));const done=day.filter(t=>t.done).length,pct=Math.round(journalProgress(day));$('#day-pct').textContent=pct+'%';$('#mascot-button')?.classList.toggle('celebrating',day.length>0&&done===day.length);const mascotMessage=$('#mascot-message');if(mascotMessage)mascotMessage.textContent=day.length&&done===day.length?'Все дела закрыты. Плащ на крючок — ты заслужил отдых.':done>0?'Уже есть маленькие победы. Продолжаем в твоём темпе.':'Спасать мир — после обеда. Пока закрой одну задачу.';$('#day-count').textContent=`${done} из ${day.length} задач`;$('#day-bar').style.width=pct+'%';$('#week-done').textContent=week.filter(t=>t.done).length;$('#week-total').textContent=`из ${week.length} задач выполнено`;$('#all-count').textContent=undatedTasks().filter(t=>!t.done).length;$('#mini-bars').replaceChildren();$('#chart').replaceChildren();days.forEach((key,i)=>{const total=week.filter(t=>t.date===key),n=total.filter(t=>t.done).length,percent=journalProgress(total);const bar=document.createElement('i');bar.style.height=Math.max(12,percent)+'%';bar.title=`${labelDate(key)}: ${n} из ${total.length}`;$('#mini-bars').append(bar);const col=document.createElement('div');col.className='chart-col'+(key===today?' today':'');col.title=bar.title;const b=document.createElement('div');b.className='chart-bar';b.style.height=Math.max(5,percent)+'%';const l=document.createElement('label');l.textContent=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'][i];col.append(b,l);$('#chart').append(col)});$('#week-summary').textContent=week.length?`Выполнено ${Math.round(journalProgress(week))}% планов недели`:'На этой неделе пока нет задач';const list=scoped().filter(t=>!t.done||view==='today');$('#task-count').textContent=list.length;$('#remaining').textContent=`Осталось: ${list.filter(t=>!t.done).length}`;const visible=list.filter(t=>view!=='today'||filter==='all'||(filter==='done'?t.done:!t.done)).sort((a,b)=>a.date.localeCompare(b.date)||(a.time||'24:00').localeCompare(b.time||'24:00')||(view!=='today'?0:Number(a.done)-Number(b.done)));$('#task-list').replaceChildren();if(!visible.length){const e=document.createElement('div');e.className='empty';e.textContent=view!=='today'?'Пока нет задач':filter==='done'?'Здесь появятся выполненные дела':filter==='open'?'Всё готово. Можно выдохнуть':'Пока чистый лист. Каким будет твой день?';$('#task-list').append(e)}visible.forEach(t=>{const row=document.createElement('div');row.className='task'+(t.done?' done':'');const check=document.createElement('button');check.className='check';check.textContent=t.done?'✓':'';check.setAttribute('aria-label',(hasExercises(t)?'Открыть упражнения: ':t.done?'Вернуть в планы: ':'Завершить: ')+t.title);check.setAttribute('aria-pressed',t.done);check.disabled=isPast(t.date);check.onclick=()=>{if(!canChange(t))return;if(hasExercises(t)){openDetails(t.id);return}if(t.seriesId){const series=recurring.find(r=>r.id===t.seriesId);series.completed[t.date]=!t.done}else t.done=!t.done;save();render()};const body=document.createElement('div');body.className='task-body';const title=document.createElement('button');title.type='button';title.className='task-title task-open';title.textContent=t.title+' ›';title.setAttribute('aria-label','Открыть задачу: '+t.title);title.onclick=()=>openDetails(t.id);const meta=document.createElement('div');meta.className='task-meta';const cat=document.createElement('span');cat.className='category'+(t.category==='Работа'?' work':t.category==='Здоровье'?' health':'');cat.textContent=t.category;const dot=document.createElement('i');dot.className='priority '+t.priority;const priority=document.createElement('span');priority.textContent=priorities[t.priority];if(t.category){if(t.categoryColor){cat.style.setProperty('--category-color',t.categoryColor);cat.classList.add('custom-category')}meta.append(cat)}meta.append(dot,priority);if(t.time){const time=document.createElement('time');time.textContent=t.time;meta.append(time)}if(t.kind==='workout'){const badge=document.createElement('span');badge.className='recurring-badge';badge.textContent=hasExercises(t)?'Тренировка · '+workoutProgress(t).percent+'%':'Тренировка';meta.append(badge)}if(t.seriesId){const badge=document.createElement('span');badge.className='recurring-badge';badge.textContent='↻ '+seriesLabel(recurring.find(r=>r.id===t.seriesId));meta.append(badge)}if(view!=='today'){const d=document.createElement('span');d.textContent=labelDate(t.date);meta.append(d)}if(t.notes){const detail=document.createElement('span');detail.className='subtask-summary';detail.textContent='✎ Заметки';meta.append(detail)}body.append(title,meta);row.append(check,body);$('#task-list').append(row)})}
 const categoryDefaults=new Map([['Работа','#9faec5'],['Личное','#a2b885'],['Здоровье','#d5bb94'],['Учёба','#baa5c7']]);
 const defaultCategoryColor='#a2b885';
 function categoryPalette(){
@@ -547,7 +564,7 @@ function openDialog(task){
  const series=task?.seriesId?recurring.find(r=>r.id===task.seriesId):null;
  editId=task?.id??null;editingDate=task?.date??null;editingSeriesId=series?.id??null;
  $('#dialog-title').textContent=series?'Редактировать повторение':task?'Редактировать задачу':'Новая задача';
- $('#task-title').value=task?.title??'';$('#task-date').value=series?([series.startDate,dateKey(new Date())].sort().at(-1)):(task?.date??selectedDate);$('#task-priority').value=task?.priority??'normal';$('#task-time').value=task?.time??'';
+ $('#task-title').value=task?.title??'';$('#task-date').value=task?.date??selectedDate;$('#task-priority').value=task?.priority??'normal';$('#task-time').value=task?.time??'';
  const palette=categoryPalette();
  $('#task-category').value=task?.category??'';
  $('#task-category-color').value=task?.categoryColor??palette.get(task?.category)??defaultCategoryColor;
@@ -581,11 +598,13 @@ $('#task-form').onsubmit=e=>{
  if(repeat&&!selectedDays.length){$('#repeat-error').hidden=false;return}
  let series=recurring.find(r=>r.id===editingSeriesId);
  if(editId&&!series&&!tasks.some(t=>t.id===editId))return;
- const anchor=series&&repeatInterval(series)===interval&&data.date===editingStartDate?(series.repeatAnchor??series.startDate):data.date;
+ const keepSchedule=series&&data.date===editingStartDate&&repeatInterval(series)===interval;
+ const startDate=keepSchedule?today:(data.date>today?today:data.date);
+ const anchor=keepSchedule?(series.repeatAnchor??series.startDate):data.date;
  if(series&&isPast(series.startDate))series=forkSeries(series);
  if(repeat){
-  if(series){Object.assign(series,{title,priority:data.priority,category:data.category,categoryColor:data.categoryColor,time:data.time,startDate:data.date,repeatInterval:interval,repeatAnchor:anchor,weekdays:selectedDays,notes:data.notes,subtasks:data.subtasks,kind:data.kind,exercises:data.exercises})}
-  else {const original=tasks.find(t=>t.id===editId);const completed={};if(original?.done&&selectedDays.includes((new Date(original.date+'T12:00:00').getDay()+6)%7))completed[original.date]=true;recurring.push({id:crypto.randomUUID(),title,priority:data.priority,category:data.category,categoryColor:data.categoryColor,time:data.time,startDate:data.date,repeatInterval:interval,repeatAnchor:anchor,weekdays:selectedDays,completed,skipped:[],exerciseCompletion:original?.exerciseCompletion?{[original.date]:original.exerciseCompletion}:{},notes:data.notes,subtasks:data.subtasks,kind:data.kind,exercises:data.exercises,subtaskCompletion:original?.date?{[original.date]:Object.fromEntries(data.subtasks.map(s=>[s.id,!!s.done]))}:{}});if(original)tasks=tasks.filter(t=>t.id!==editId)}
+  if(series){Object.assign(series,{title,priority:data.priority,category:data.category,categoryColor:data.categoryColor,time:data.time,startDate,repeatInterval:interval,repeatAnchor:anchor,weekdays:selectedDays,notes:data.notes,subtasks:data.subtasks,kind:data.kind,exercises:data.exercises})}
+  else {const original=tasks.find(t=>t.id===editId);const completed={};if(original?.done&&selectedDays.includes((new Date(original.date+'T12:00:00').getDay()+6)%7))completed[original.date]=true;recurring.push({id:crypto.randomUUID(),title,priority,category:data.category,categoryColor:data.categoryColor,time:data.time,startDate,repeatInterval:interval,repeatAnchor:anchor,weekdays:selectedDays,completed,skipped:[],exerciseCompletion:original?.exerciseCompletion?{[original.date]:original.exerciseCompletion}:{},notes:data.notes,subtasks:data.subtasks,kind:data.kind,exercises:data.exercises,subtaskCompletion:original?.date?{[original.date]:Object.fromEntries(data.subtasks.map(s=>[s.id,!!s.done]))}:{}});if(original)tasks=tasks.filter(t=>t.id!==editId)}
  }else if(series){recurring=recurring.filter(r=>r.id!==series.id);tasks.push({...data,id:crypto.randomUUID(),done:!!series.completed[data.date],exerciseCompletion:series.exerciseCompletion?.[data.date]??{}})}
  else if(editId)Object.assign(tasks.find(t=>t.id===editId),data);else tasks.push({...data,id:crypto.randomUUID(),done:false});
  save();$('#task-dialog').close();render();toast(repeat?'Повторение сохранено: '+seriesLabel({weekdays:selectedDays,repeatInterval:interval}):'Задача сохранена');
@@ -615,7 +634,33 @@ function renderCalendar(){
  $('#today-date').textContent=new Date().toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
  const range=`${labelDate(days[0])} — ${labelDate(days[6])}`;$('#calendar-range').textContent=range;$('#week-range').textContent=range;
  $('#tasks-heading').firstChild.textContent=view==='today'?(selectedDate===today?'Планы на сегодня ':`Планы на ${labelDate(selectedDate)} `):'Все задачи ';
- $('#day-picker').replaceChildren();days.forEach((key,i)=>{const b=document.createElement('button');b.className='day-option'+(key===selectedDate?' chosen':'')+(key===today?' current':'');b.setAttribute('aria-label',`${weekdays[i]}, ${labelDate(key)}${key===today?', сегодня':''}`);b.setAttribute('aria-pressed',key===selectedDate);if(key===today)b.setAttribute('aria-current','date');const name=document.createElement('span');name.textContent=weekdays[i];const num=document.createElement('b');num.textContent=Number(key.slice(-2));const status=document.createElement('small');const n=allTasks().filter(t=>t.date===key).length;status.textContent=key===today?'сегодня':n?`${n} задач`:'свободно';const dots=document.createElement('i');dots.className='day-dot';dots.style.opacity=n?'1':'0';b.append(name,num,status,dots);b.onclick=()=>selectDay(key);$('#day-picker').append(b)});
+ const tasks=allTasks();
+ const tiles=days.map((key,index)=>{
+  const dayTasks=tasks.filter(task=>task.date===key);
+  const progress=journalProgress(dayTasks);
+  const button=document.createElement('button');
+  button.className='day-option'+(key===selectedDate?' chosen':'')+(key===today?' current':'');
+  button.style.setProperty('--day-progress',progress+'%');
+  const summary=dayTasks.length?`выполнено ${Math.round(progress)}%`:'нет задач';
+  const label=`${weekdays[index]}, ${labelDate(key)}${key===today?', сегодня':''}, ${summary}`;
+  button.setAttribute('aria-label',label);
+  button.title=label;
+  button.setAttribute('aria-pressed',key===selectedDate);
+  if(key===today)button.setAttribute('aria-current','date');
+  const name=document.createElement('span');
+  name.textContent=weekdays[index];
+  const number=document.createElement('b');
+  number.textContent=Number(key.slice(-2));
+  const status=document.createElement('small');
+  status.textContent=key===today?'сегодня':dayTasks.length?`${dayTasks.length} задач`:'свободно';
+  const dot=document.createElement('i');
+  dot.className='day-dot';
+  dot.style.opacity=dayTasks.length?'1':'0';
+  button.append(name,number,status,dot);
+  button.onclick=()=>selectDay(key);
+  return button;
+ });
+ $('#day-picker').replaceChildren(...tiles);
 }
 function renderAnalytics(){
  const list=scoped(),done=list.filter(t=>t.done).length,pct=Math.round(journalProgress(list)),partial=list.filter(t=>hasExercises(t)&&!t.done&&workoutProgress(t).done>0).length;
